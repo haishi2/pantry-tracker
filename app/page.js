@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { fireStore, storage } from "@/firebase";
@@ -26,7 +27,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import "blueimp-canvas-to-blob";
+import Webcam from "react-webcam";
 
 export default function Home() {
   const [inventory, setInventory] = useState([]);
@@ -35,33 +36,9 @@ export default function Home() {
   const [imageFile, setImageFile] = useState(null);
   const [filter, setFilter] = useState("");
   const [itemsToDisplay, setItemsToDisplay] = useState([]);
-  const [cameraAccess, setCameraAccess] = useState(null);
+  const webcamRef = useRef(null);
 
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-
-  const checkAndRequestCameraPermission = async () => {
-    if (
-      typeof window !== "undefined" &&
-      navigator?.mediaDevices?.getUserMedia
-    ) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setCameraAccess(true);
-      } catch (error) {
-        console.error("Camera access denied or error occurred:", error);
-        setCameraAccess(false);
-      }
-    } else {
-      setCameraAccess(false);
-    }
-  };
-
+  // Update inventory list from Firestore
   const updateInventory = async () => {
     const snapshot = query(collection(fireStore, "inventory"));
     const docs = await getDocs(snapshot);
@@ -75,6 +52,7 @@ export default function Home() {
     setInventory(inventoryList);
   };
 
+  // Remove an item from the inventory
   const removeItem = async (item) => {
     const docRef = doc(collection(fireStore, "inventory"), item);
     const docSnap = await getDoc(docRef);
@@ -102,15 +80,19 @@ export default function Home() {
     await updateInventory();
   };
 
+  // Add an item to the inventory
   const addItem = async (item) => {
     const docRef = doc(collection(fireStore, "inventory"), item);
     const docSnap = await getDoc(docRef);
     let imageURL;
 
     if (docSnap.exists()) {
-      const { quantity, imageURL } = docSnap.data();
+      const { quantity } = docSnap.data();
 
-      await setDoc(docRef, { quantity: quantity + 1, imageURL });
+      await setDoc(docRef, {
+        quantity: quantity + 1,
+        imageURL: imageFile ? imageFile : "",
+      });
     } else {
       if (imageFile) {
         const storageRef = ref(storage, `images/${item}.png`);
@@ -128,6 +110,7 @@ export default function Home() {
     await updateInventory();
   };
 
+  // Handle file input change
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -135,37 +118,28 @@ export default function Home() {
     }
   };
 
+  // Capture a photo from the webcam
   const handleTakePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
-      const video = videoRef.current;
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      canvas.toBlob((blob) => {
-        setImageFile(blob);
-      }, "image/png");
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then((res) => res.blob())
+        .then((blob) => setImageFile(blob));
     }
   };
 
+  // Update inventory on component mount
   useEffect(() => {
     updateInventory();
   }, []);
 
+  // Filter items based on search input
   useEffect(() => {
     const filtered_items = inventory.filter((item) =>
       item.name.toLowerCase().includes(filter.toLowerCase())
     );
     setItemsToDisplay(filtered_items);
   }, [filter, inventory]);
-
-  useEffect(() => {
-    checkAndRequestCameraPermission();
-  }, [open]);
 
   return (
     <Box
@@ -251,47 +225,41 @@ export default function Home() {
           <Stack width="100%" direction="column" spacing={2}>
             <p>Most recent image will be used</p>
             <input type="file" accept="image/*" onChange={handleFileChange} />
-            {cameraAccess === true && (
-              <Box
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                justifyContent="center"
-                gap={2}
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              justifyContent="center"
+              gap={2}
+            >
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                screenshotFormat="image/jpeg"
+                width="100%"
+                height={300}
+                videoConstraints={{
+                  facingMode: "user",
+                }}
+                style={{
+                  width: "100%",
+                  height: "300px",
+                }}
+              />
+              <Button
+                variant="contained"
+                sx={{
+                  backgroundColor: "#5A375B",
+                  color: "#E5E5E5",
+                  "&:hover": {
+                    backgroundColor: "#301934",
+                  },
+                }}
+                onClick={handleTakePhoto}
               >
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  style={{
-                    width: "100%",
-                    height: "300px",
-                  }}
-                />
-
-                <canvas ref={canvasRef} style={{ display: "none" }} />
-
-                <Button
-                  variant="contained"
-                  sx={{
-                    backgroundColor: "#5A375B",
-                    color: "#E5E5E5",
-                    "&:hover": {
-                      backgroundColor: "#301934",
-                    },
-                  }}
-                  onClick={handleTakePhoto}
-                >
-                  Take photo
-                </Button>
-              </Box>
-            )}
-            {cameraAccess === false && (
-              <Typography color="#A8A8A8">
-                Camera access is not granted. Please enable it to use this
-                feature.
-              </Typography>
-            )}
+                Take photo
+              </Button>
+            </Box>
           </Stack>
         </Box>
       </Modal>
