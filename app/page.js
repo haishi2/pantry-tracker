@@ -84,14 +84,14 @@ export default function Home() {
   const addItem = async (item) => {
     const docRef = doc(collection(fireStore, "inventory"), item);
     const docSnap = await getDoc(docRef);
-    let imageURL;
+    let newImageURL;
 
     if (docSnap.exists()) {
-      const { quantity } = docSnap.data();
+      const { quantity, imageURL } = docSnap.data();
 
       await setDoc(docRef, {
         quantity: quantity + 1,
-        imageURL: imageFile ? imageFile : "",
+        imageURL: imageURL,
       });
     } else {
       if (imageFile) {
@@ -99,11 +99,11 @@ export default function Home() {
 
         await uploadBytes(storageRef, imageFile);
 
-        imageURL = await getDownloadURL(storageRef);
+        newImageURL = await getDownloadURL(storageRef);
       } else {
-        imageURL = "";
+        newImageURL = "";
       }
-      await setDoc(docRef, { quantity: 1, imageURL });
+      await setDoc(docRef, { quantity: 1, imageURL: newImageURL });
     }
 
     setImageFile(null);
