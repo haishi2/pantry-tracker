@@ -41,14 +41,23 @@ export default function Home() {
   const canvasRef = useRef(null);
 
   const checkAndRequestCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+    if (
+      typeof window !== "undefined" &&
+      navigator?.mediaDevices?.getUserMedia
+    ) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setCameraAccess(true);
+      } catch (error) {
+        console.error("Camera access denied or error occurred:", error);
+        setCameraAccess(false);
       }
-      setCameraAccess(true);
-    } catch (error) {
-      console.error("Camera access denied or error occurred:", error);
+    } else {
       setCameraAccess(false);
     }
   };
