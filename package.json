@@ -13,6 +13,7 @@
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^5.16.6",
     "blueimp-canvas-to-blob": "^3.29.0",
+    "dotenv": "^16.4.5",
     "firebase": "^10.12.4",
     "next": "14.2.5",
     "react": "^18",
